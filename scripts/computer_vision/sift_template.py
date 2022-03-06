@@ -82,7 +82,7 @@ def cd_sift_ransac(img, template):
 		########### YOUR CODE ENDS HERE ###########
 
 		# Return bounding box
-		return ((x_max, y_max), (x_min, y_min))
+		return ((x_min, y_min), (x_max, y_max))
 	else:
 
 		print "[SIFT] not enough matches; matches: ", len(good)
@@ -128,7 +128,7 @@ def cd_template_matching(img, template):
 		# x1,y1 pixel will be accurate, but x2,y2 needs to be correctly scaled
 
                 re_size = resized_template.shape[1]
-                match = cv2.matchTemplate(img_canny, resized_template, cv2.TM_CCOEFF_NORMED)
+                match = cv2.matchTemplate(img_canny, resized_template, cv2.TM_CCOEFF)
                 (min_val, best_val, min_index, best_index) = cv2.minMaxLoc(match)
                 
                 if best_match is None or best_val > best_match[0]:
