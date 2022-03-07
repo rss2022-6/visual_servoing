@@ -167,7 +167,10 @@ if __name__ == '__main__':
             print "Argument/s not recognized"
 
         if scores:
+            sum_val=0
             for (img, val) in scores.iteritems():
                 print((img, val))
+                sum_val+=val
+            print("Overall "+str(sum_val))
     else:
         print("too many arguments")
