@@ -127,19 +127,23 @@ def cd_template_matching(img, template):
 		# Remember to resize the bounding box using the highest scoring scale
 		# x1,y1 pixel will be accurate, but x2,y2 needs to be correctly scaled
 
-                re_size = resized_template.shape[1]
-                match = cv2.matchTemplate(img_canny, resized_template, cv2.TM_CCOEFF)
+                #re_size = resized_template.shape[1]
+                match = cv2.matchTemplate(img_canny, resized_template, cv2.TM_CCORR_NORMED)
                 (min_val, best_val, min_index, best_index) = cv2.minMaxLoc(match)
                 
                 if best_match is None or best_val > best_match[0]:
-                        best_match = (best_val, best_index, re_size, h, w)
+                        best_match = (best_val, best_index, h, w)
                         
-        (final_val, final_loc, re_shape, h, w) = best_match
-        rat = template.shape[1]/ float(re_shape)
-        x1 = int(final_loc[0]*rat)
-        y1 = int(final_loc[1]*rat)
-        x2 = int((final_loc[0] + w)*rat)
-        y2 = int((final_loc[1] + h)*rat)
+        (final_val, final_loc, h, w) = best_match
+        #rat = template.shape[1]/ float(re_shape)
+        #x1 = int(final_loc[0]*rat)
+        #y1 = int(final_loc[1]*rat)
+        #x2 = int((final_loc[0] + w)*rat)
+        #y2 = int((final_loc[1] + h)*rat)
+        x1 = int(final_loc[0])
+        y1 = int(final_loc[1])
+        x2 = int((final_loc[0] + w))
+        y2 = int((final_loc[1] + h))
         bounding_box = ((x1, y1), (x2, y2))
 		########### YOUR CODE ENDS HERE ###########
 
