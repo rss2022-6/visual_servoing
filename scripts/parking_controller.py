@@ -35,7 +35,7 @@ class ParkingController():
 
         # initialize parameters to the values below
         self.param_list = ['kps', 'kds', 'kpa', 'kda', 'kia', 'angle_coeff']
-        init_vals = [3, 0.5, 1, 0.08, 0.001, 15]
+        init_vals = [3, 0.5, 1, 0.08, 0.0005, 15]
         tuners = []
         for i in range(len(self.param_list)):
             tuner = rospy.set_param(self.param_list[i], init_vals[i])
@@ -74,7 +74,7 @@ class ParkingController():
         self.dist_multiplier = abs(angle_e) * self.angle_coeff
         # calculate the speed
         speed_calc = (self.kps * dist_e + self.kds * dist_e_dot)
-        if not np.isclose(angle_e, 0, atol=self.angle_tolerance) and np.isclose(dist_e, 0, atol=5*self.distance_tolerance):
+        if not np.isclose(angle_e, 0, atol=8*self.angle_tolerance) and np.isclose(dist_e, 0, atol=8*self.distance_tolerance):
             speed_calc = 0.5*np.sign(speed_calc)
         speed = max(min(speed_calc, 1), -1)  # cap the speed at 1
         # steering angle depends on the direction of speed and PID loop
@@ -82,7 +82,7 @@ class ParkingController():
         steering_angle = max(min(steering_angle, 0.34), -0.34)
 
         # resets the integral error if it is close to the right direction or pointing the right way
-        if np.isclose(dist_e, 0, atol=5*self.distance_tolerance) or np.isclose(angle_e, 0, atol=5*self.angle_tolerance):
+        if np.isclose(dist_e, 0, atol=10*self.distance_tolerance) or np.isclose(angle_e, 0, atol=8*self.angle_tolerance):
             self.int_ang_e = 0
 
         # sets the speed and steering angle to 0 if it is near the goal parking spot
