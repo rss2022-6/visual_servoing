@@ -2,6 +2,7 @@
 
 import rospy
 import numpy as np
+from std_msgs.msg import Float32
 from visual_servoing.msg import ConeLocation, ParkingError
 from ackermann_msgs.msg import AckermannDriveStamped
 
@@ -23,6 +24,12 @@ class ParkingController():
                                          AckermannDriveStamped, queue_size=10)
         self.error_pub = rospy.Publisher("/parking_error",
                                          ParkingError, queue_size=10)
+        self.settling_time_pub = rospy.Publisher("/settling_time",
+                                                 Float32, queue_size=10)
+        self.ideal_time_pub = rospy.Publisher("/ideal_time",
+                                                 Float32, queue_size=10)
+        self.time_comparison = rospy.Publisher("/settling_over_ideal",
+                                              Float32, queue_size=10)
 
         # init previous values and relative position vals
         self.relative_x, self.relative_y = 0, 0
@@ -33,75 +40,92 @@ class ParkingController():
         self.angle_tolerance = 0.01
         self.distance_tolerance = 0.01
 
+        # metrics for measuring performance of controller
+        self.start_time = rospy.get_rostime().nsecs
+        self.settling_time = 1
+        self.finished = False
+        self.init = True
+        self.ideal_time = 1
+
         # initialize parameters to the values below
-        self.param_list = ['kps', 'kds', 'kpa', 'kda', 'kia', 'angle_coeff']
-        init_vals = [3, 0.5, 1, 0.08, 0.0005, 15]
+        self.param_list = ['kps', 'kds', 'kpa', 'kda', 'kia']
+        init_vals = [3, 1, 1, 0.1, 0.0005]
         tuners = []
         for i in range(len(self.param_list)):
             tuner = rospy.set_param(self.param_list[i], init_vals[i])
             tuners.append(tuner)
-        self.kps, self.kds, self.kpa, self.kda, self.kia, self.angle_coeff = tuners
+        self.kps, self.kds, self.kpa, self.kda, self.kia = tuners
 
         # initialize parking parameters
-        self.parking_distance = 1
-        if rospy.has_param('park_dist'):
-            self.parking_distance = rospy.get_param('park_dist')
-        else:
-            self.parking_distance = rospy.set_param('park_dist', 1)
+        self.parking_distance = rospy.set_param('park_dist', 0.9)
 
     def relative_cone_callback(self, msg):
         self.relative_x = msg.x_pos
         self.relative_y = msg.y_pos
-        now = rospy.Time.now().nsecs
+        now = rospy.get_time()
 
         # create the tuning parameters
         tuners = []
         for i in range(len(self.param_list)):
             tuner = rospy.get_param(self.param_list[i])
             tuners.append(tuner)
-        self.kps, self.kds, self.kpa, self.kda, self.kia, self.angle_coeff = tuners
+        self.kps, self.kds, self.kpa, self.kda, self.kia = tuners
         self.parking_distance = rospy.get_param('park_dist')
 
         # calculate distance and angle errors and derivatives
         dist_e = np.linalg.norm(np.array([self.relative_x, self.relative_y])) - self.parking_distance
         angle_e = np.arctan2(self.relative_y, self.relative_x)  # radians -pi to pi of the angle of the car dir vs cone
-        self.int_ang_e += angle_e # integral term
+        self.int_ang_e += angle_e  # integral term
         self.int_ang_e = max(min(self.int_ang_e, 0.34 / self.kia), -0.34 / self.kia)
-        dist_e_dot = (dist_e - self.prev_dist) / ((now - self.prev_time) * (10 ** -9))  # approx dist derivative
-        angle_e_dot = (angle_e - self.prev_angle) / ((now - self.prev_time) * (10 ** -9))  # approx angle derivative
+        dist_e_dot = (dist_e - self.prev_dist) / ((now - self.prev_time))  # approx dist derivative
+        angle_e_dot = (angle_e - self.prev_angle) / ((now - self.prev_time))  # approx angle derivative
 
-        # if the angle error is not zero, allows the car to turn until correct
-        self.dist_multiplier = abs(angle_e) * self.angle_coeff
+        if self.init:
+            self.init = False
+            self.start_time = rospy.get_time()
+            self.ideal_time = dist_e  # d = v*t, v = 1
+
         # calculate the speed
         speed_calc = (self.kps * dist_e + self.kds * dist_e_dot)
-        if not np.isclose(angle_e, 0, atol=8*self.angle_tolerance) and np.isclose(dist_e, 0, atol=8*self.distance_tolerance):
-            speed_calc = 0.5*np.sign(speed_calc)
+        if not np.isclose(angle_e, 0, atol=8 * self.angle_tolerance) and np.isclose(dist_e, 0, atol=8 * self.distance_tolerance):
+            speed_calc = 0.5 * np.sign(speed_calc)  # moves at minimum speed
         speed = max(min(speed_calc, 1), -1)  # cap the speed at 1
+
         # steering angle depends on the direction of speed and PID loop
         steering_angle = np.sign(speed) * (self.kpa * angle_e + self.kda * angle_e_dot + self.kia * self.int_ang_e)
         steering_angle = max(min(steering_angle, 0.34), -0.34)
 
         # resets the integral error if it is close to the right direction or pointing the right way
-        if np.isclose(dist_e, 0, atol=10*self.distance_tolerance) or np.isclose(angle_e, 0, atol=8*self.angle_tolerance):
+        if np.isclose(dist_e, 0, atol=10 * self.distance_tolerance) or np.isclose(angle_e, 0, atol=8 * self.angle_tolerance):
             self.int_ang_e = 0
 
         # sets the speed and steering angle to 0 if it is near the goal parking spot
         if np.isclose(dist_e, 0, atol=self.distance_tolerance) and np.isclose(angle_e, 0, atol=self.angle_tolerance):
+            if not self.finished:  # return the time it took to finish
+                t = rospy.get_time()
+                self.settling_time = (t - self.start_time)
+            self.finished = True
+
             rospy.loginfo('==================ZERO===================')
-            speed, steering_angle = 0, 0
+            speed, steering_angle = 0, 0  # stops the vehicle when close enough
 
         cmd = drive_cmd_maker(speed=speed, steering_angle=steering_angle)
-        if self.prev_speed == -1*speed:
+        self.prev_cmd = cmd
+        if self.prev_speed == -1 * speed:
             rospy.loginfo('%%%%%%%%%%%%%%%%%%%%% PREV CMD %%%%%%%%%%%%%%%%%%%%%%%%%')
-            cmd = self.prev_cmd
+            self.prev_cmd = cmd
+
         self.drive_pub.publish(cmd)
+        # publish time error metrics
+        self.settling_time_pub.publish(self.settling_time)
+        self.ideal_time_pub.publish(self.ideal_time)
+        self.time_comparison.publish(self.settling_time/self.ideal_time)
         # publish x, y, and distance error
         self.error_publisher(dist_e * np.cos(angle_e), dist_e * np.sin(angle_e), dist_e)
 
         # set all of the previous values to these values
         self.prev_dist = dist_e
         self.prev_angle = angle_e
-        self.prev_cmd = cmd
         self.prev_time = now
         self.prev_speed = speed
         self.int_ang_e += angle_e
@@ -109,7 +133,7 @@ class ParkingController():
         # log info for debugging
         rospy.loginfo(
             'tuners: ' + str(
-                (self.kps, self.kds, self.kpa, self.kda, self.kia, self.angle_coeff, self.dist_multiplier)))
+                (self.kps, self.kds, self.kpa, self.kda, self.kia)))
         rospy.loginfo('dist_e: ' + str((dist_e, self.kps * dist_e)))
         rospy.loginfo('dist_e_dot: ' + str((dist_e_dot, self.kds * dist_e_dot)))
         rospy.loginfo('angle_e: ' + str((angle_e, self.kpa * angle_e)))
