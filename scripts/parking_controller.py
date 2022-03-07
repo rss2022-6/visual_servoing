@@ -30,6 +30,9 @@ class ParkingController():
         self.prev_cmd = AckermannDriveStamped()
         self.int_ang_e = 0  # init integral
 
+        self.angle_tolerance = 0.01
+        self.distance_tolerance = 0.01
+
         # initialize parameters to the values below
         self.param_list = ['kps', 'kds', 'kpa', 'kda', 'kia', 'angle_coeff']
         init_vals = [3, 0.5, 1, 0.08, 0.001, 15]
@@ -57,7 +60,7 @@ class ParkingController():
             tuner = rospy.get_param(self.param_list[i])
             tuners.append(tuner)
         self.kps, self.kds, self.kpa, self.kda, self.kia, self.angle_coeff = tuners
-        # self.parking_distance = rospy.get_param('park_dist')
+        self.parking_distance = rospy.get_param('park_dist')
 
         # calculate distance and angle errors and derivatives
         dist_e = np.linalg.norm(np.array([self.relative_x, self.relative_y])) - self.parking_distance
@@ -71,18 +74,19 @@ class ParkingController():
         self.dist_multiplier = abs(angle_e) * self.angle_coeff
         # calculate the speed
         speed_calc = (self.kps * dist_e + self.kds * dist_e_dot)
-        if not np.isclose(angle_e, 0, atol=0.04) and np.isclose(dist_e, 0, atol=0.05):
+        if not np.isclose(angle_e, 0, atol=self.angle_tolerance) and np.isclose(dist_e, 0, atol=5*self.distance_tolerance):
             speed_calc = 0.5*np.sign(speed_calc)
         speed = max(min(speed_calc, 1), -1)  # cap the speed at 1
         # steering angle depends on the direction of speed and PID loop
         steering_angle = np.sign(speed) * (self.kpa * angle_e + self.kda * angle_e_dot + self.kia * self.int_ang_e)
         steering_angle = max(min(steering_angle, 0.34), -0.34)
+
         # resets the integral error if it is close to the right direction or pointing the right way
-        if np.isclose(dist_e, 0, atol=0.05) or np.isclose(angle_e, 0, atol=0.04):
+        if np.isclose(dist_e, 0, atol=5*self.distance_tolerance) or np.isclose(angle_e, 0, atol=5*self.angle_tolerance):
             self.int_ang_e = 0
 
         # sets the speed and steering angle to 0 if it is near the goal parking spot
-        if np.isclose(dist_e, 0, atol=0.05) and np.isclose(angle_e, 0, atol=0.09):
+        if np.isclose(dist_e, 0, atol=self.distance_tolerance) and np.isclose(angle_e, 0, atol=self.angle_tolerance):
             rospy.loginfo('==================ZERO===================')
             speed, steering_angle = 0, 0
 
