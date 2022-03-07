@@ -68,8 +68,16 @@ def cd_sift_ransac(img, template):
 		pts = np.float32([ [0,0],[0,h-1],[w-1,h-1],[w-1,0] ]).reshape(-1,1,2)
 
 		########## YOUR CODE STARTS HERE ##########
+                dst = cv2.perspectiveTransform(pts, M)
+                corners = np.float32(dst).reshape((4,2))
+                dist = np.sqrt(np.square(corners.T[0:1]) + np.square(corners.T[1:2]))
 
-		x_min = y_min = x_max = y_max = 0
+                min_index = np.argmin(dist)
+                max_index = np.argmax(dist)
+		x_min = corners.T[0, min_index]
+                y_min = corners.T[1, min_index]
+                x_max = corners.T[0, max_index]
+                y_max = corners.T[1, max_index]
 
 		########### YOUR CODE ENDS HERE ###########
 
@@ -115,10 +123,28 @@ def cd_template_matching(img, template):
 		########## YOUR CODE STARTS HERE ##########
 		# Use OpenCV template matching functions to find the best match
 		# across template scales.
-
+        
 		# Remember to resize the bounding box using the highest scoring scale
 		# x1,y1 pixel will be accurate, but x2,y2 needs to be correctly scaled
-		bounding_box = ((0,0),(0,0))
+
+                #re_size = resized_template.shape[1]
+                match = cv2.matchTemplate(img_canny, resized_template, cv2.TM_CCORR_NORMED)
+                (min_val, best_val, min_index, best_index) = cv2.minMaxLoc(match)
+                
+                if best_match is None or best_val > best_match[0]:
+                        best_match = (best_val, best_index, h, w)
+                        
+        (final_val, final_loc, h, w) = best_match
+        #rat = template.shape[1]/ float(re_shape)
+        #x1 = int(final_loc[0]*rat)
+        #y1 = int(final_loc[1]*rat)
+        #x2 = int((final_loc[0] + w)*rat)
+        #y2 = int((final_loc[1] + h)*rat)
+        x1 = int(final_loc[0])
+        y1 = int(final_loc[1])
+        x2 = int((final_loc[0] + w))
+        y2 = int((final_loc[1] + h))
+        bounding_box = ((x1, y1), (x2, y2))
 		########### YOUR CODE ENDS HERE ###########
 
 	return bounding_box
