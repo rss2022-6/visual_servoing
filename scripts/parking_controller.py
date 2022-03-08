@@ -106,13 +106,13 @@ class ParkingController():
                 self.settling_time = (t - self.start_time)
             self.finished = True
 
-            rospy.loginfo('==================ZERO===================')
+            # rospy.loginfo('==================ZERO===================')
             speed, steering_angle = 0, 0  # stops the vehicle when close enough
 
         cmd = drive_cmd_maker(speed=speed, steering_angle=steering_angle)
         self.prev_cmd = cmd
         if self.prev_speed == -1 * speed:
-            rospy.loginfo('%%%%%%%%%%%%%%%%%%%%% PREV CMD %%%%%%%%%%%%%%%%%%%%%%%%%')
+            # rospy.loginfo('%%%%%%%%%%%%%%%%%%%%% PREV CMD %%%%%%%%%%%%%%%%%%%%%%%%%')
             self.prev_cmd = cmd
 
         self.drive_pub.publish(cmd)
@@ -131,17 +131,17 @@ class ParkingController():
         self.int_ang_e += angle_e
 
         # log info for debugging
-        rospy.loginfo(
-            'tuners: ' + str(
-                (self.kps, self.kds, self.kpa, self.kda, self.kia)))
-        rospy.loginfo('dist_e: ' + str((dist_e, self.kps * dist_e)))
-        rospy.loginfo('dist_e_dot: ' + str((dist_e_dot, self.kds * dist_e_dot)))
-        rospy.loginfo('angle_e: ' + str((angle_e, self.kpa * angle_e)))
-        rospy.loginfo('integral_angle_e: ' + str((self.int_ang_e, self.kia * self.int_ang_e)))
-        rospy.loginfo('angle_e_dot: ' + str((angle_e_dot, self.kda * angle_e_dot)))
-        rospy.loginfo('speed: ' + str((speed, speed_calc)))
-        rospy.loginfo('steering_angle: ' + str(steering_angle))
-        rospy.loginfo('----------------------------------------------------------\n')
+        # rospy.loginfo(
+        #     'tuners: ' + str(
+        #         (self.kps, self.kds, self.kpa, self.kda, self.kia)))
+        # rospy.loginfo('dist_e: ' + str((dist_e, self.kps * dist_e)))
+        # rospy.loginfo('dist_e_dot: ' + str((dist_e_dot, self.kds * dist_e_dot)))
+        # rospy.loginfo('angle_e: ' + str((angle_e, self.kpa * angle_e)))
+        # rospy.loginfo('integral_angle_e: ' + str((self.int_ang_e, self.kia * self.int_ang_e)))
+        # rospy.loginfo('angle_e_dot: ' + str((angle_e_dot, self.kda * angle_e_dot)))
+        # rospy.loginfo('speed: ' + str((speed, speed_calc)))
+        # rospy.loginfo('steering_angle: ' + str(steering_angle))
+        # rospy.loginfo('----------------------------------------------------------\n')
 
     def error_publisher(self, x_e, y_e, dist_e):
         """

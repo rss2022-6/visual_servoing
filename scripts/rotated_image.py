@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 import rospy
-import imutils
+import cv2
 
 from cv_bridge import CvBridge, CvBridgeError
 from sensor_msgs.msg import Image
@@ -21,7 +21,7 @@ class RotatedImage():
     def image_callback(self, image_msg):
         image = self.bridge.imgmsg_to_cv2(image_msg, "bgr8")
 
-        image = imutils.rotate(image, 180)
+        image = cv2.rotate(image, cv2.ROTATE_180)
 
         image_msg = self.bridge.cv2_to_imgmsg(image, "bgr8")
         self.image_pub.publish(image_msg)
