@@ -46,8 +46,8 @@ class ConeDetector():
 
         image = self.bridge.imgmsg_to_cv2(image_msg, "bgr8")
 
-        bbox = cd_color_segmentation(image, None) # Use this for cone detection
-        # bbox = lf_color_segmentation(image, None) # Use this for line following
+        # bbox = cd_color_segmentation(image, None) # Use this for cone detection
+        bbox = lf_color_segmentation(image, None) # Use this for line following
         
         point = ConeLocationPixel()
         point.u = (bbox[0][0] + bbox[1][0]) / 2.0

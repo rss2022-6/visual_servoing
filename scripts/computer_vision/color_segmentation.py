@@ -104,8 +104,7 @@ def lf_color_segmentation(img, template):
 				(x1, y1) is the top left of the bbox and (x2, y2) is the bottom right of the bbox
 	"""
 	########## YOUR CODE STARTS HERE ##########
-	img = img[220:230] #Crop the image to only look 48 to 96 inches ahead
-
+	img = img[230:260]
 	xx, yy, xw, yh =0,0,0,0
 
 	hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
@@ -123,12 +122,15 @@ def lf_color_segmentation(img, template):
 		if w_*h_>w*h:
 			x,y,w,h=x_,y_,w_,h_
 
-
+	y = y + 220
 	bounding_box = ((x,y),(x+w,y+h))
 	cv2.rectangle(img,(x, y),(x+w,y+h),(0,0,255),3)
 	xx,yy,xw,yh=x,y,x+w,y+h
 
 	bounding_box = ((xx, yy),(xw, yh))
+
+	# cv2.rectangle(img,(x, y),(x+w,y+h),(0,0,255),3)
+	# image_print(img)
 	########### YOUR CODE ENDS HERE ###########
 
 	# Return bounding box
