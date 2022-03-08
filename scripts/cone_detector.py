@@ -11,7 +11,7 @@ from geometry_msgs.msg import Point #geometry_msgs not in CMake file
 from visual_servoing.msg import ConeLocationPixel
 
 # import your color segmentation algorithm; call this function in ros_image_callback!
-from computer_vision.color_segmentation import cd_color_segmentation
+from computer_vision.color_segmentation import cd_color_segmentation, lf_color_segmentation
 
 
 class ConeDetector():
@@ -46,14 +46,18 @@ class ConeDetector():
 
         image = self.bridge.imgmsg_to_cv2(image_msg, "bgr8")
 
-        bbox = cd_color_segmentation(image, None)
+        # bbox = cd_color_segmentation(image, None) # Use this for cone detection
+        bbox = lf_color_segmentation(image, None) # Use this for line following
         
         point = ConeLocationPixel()
         point.u = (bbox[0][0] + bbox[1][0]) / 2.0
         point.v = bbox[1][1]
 
-        if (point.u != 0 and point.v != 0):
-            self.cone_pub.publish(point)
+        if (point.u == 0 or point.v == 0): #If the cone not in view, make the car turn in a circle to find it
+            point.u = 10
+            point.v = 270
+        
+        self.cone_pub.publish(point)
 
         debug_msg = self.bridge.cv2_to_imgmsg(image, "bgr8")
         self.debug_pub.publish(debug_msg)
