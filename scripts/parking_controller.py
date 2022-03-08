@@ -37,8 +37,8 @@ class ParkingController():
         self.prev_cmd = AckermannDriveStamped()
         self.int_ang_e = 0  # init integral
 
-        self.angle_tolerance = 0.01
-        self.distance_tolerance = 0.01
+        self.angle_tolerance = 0.04
+        self.distance_tolerance = 0.04
 
         # metrics for measuring performance of controller
         self.start_time = rospy.get_rostime().nsecs
@@ -49,7 +49,7 @@ class ParkingController():
 
         # initialize parameters to the values below
         self.param_list = ['kps', 'kds', 'kpa', 'kda', 'kia']
-        init_vals = [3, 1, 1, 0.1, 0.0005]
+        init_vals = [3, 1, 0.6, 0.08, 0.0005]
         tuners = []
         for i in range(len(self.param_list)):
             tuner = rospy.set_param(self.param_list[i], init_vals[i])
@@ -57,7 +57,7 @@ class ParkingController():
         self.kps, self.kds, self.kpa, self.kda, self.kia = tuners
 
         # initialize parking parameters
-        self.parking_distance = rospy.set_param('park_dist', 0.9)
+        self.parking_distance = rospy.set_param('park_dist', 0.5)
 
     def relative_cone_callback(self, msg):
         self.relative_x = msg.x_pos
@@ -87,7 +87,7 @@ class ParkingController():
 
         # calculate the speed
         speed_calc = (self.kps * dist_e + self.kds * dist_e_dot)
-        if not np.isclose(angle_e, 0, atol=8 * self.angle_tolerance) and np.isclose(dist_e, 0, atol=8 * self.distance_tolerance):
+        if not np.isclose(angle_e, 0, atol=self.angle_tolerance) and np.isclose(dist_e, 0, atol=self.distance_tolerance):
             speed_calc = 0.5 * np.sign(speed_calc)  # moves at minimum speed
         speed = max(min(speed_calc, 1), -1)  # cap the speed at 1
 
@@ -96,7 +96,7 @@ class ParkingController():
         steering_angle = max(min(steering_angle, 0.34), -0.34)
 
         # resets the integral error if it is close to the right direction or pointing the right way
-        if np.isclose(dist_e, 0, atol=10 * self.distance_tolerance) or np.isclose(angle_e, 0, atol=8 * self.angle_tolerance):
+        if np.isclose(dist_e, 0, atol=self.distance_tolerance) or np.isclose(angle_e, 0, atol=self.angle_tolerance):
             self.int_ang_e = 0
 
         # sets the speed and steering angle to 0 if it is near the goal parking spot
@@ -109,11 +109,14 @@ class ParkingController():
             # rospy.loginfo('==================ZERO===================')
             speed, steering_angle = 0, 0  # stops the vehicle when close enough
 
-        cmd = drive_cmd_maker(speed=speed, steering_angle=steering_angle)
-        self.prev_cmd = cmd
-        if self.prev_speed == -1 * speed:
+        current_cmd = drive_cmd_maker(speed=speed, steering_angle=steering_angle)
+
+        if self.prev_speed == -1 * speed and speed != 0: # prevent fast forward backwards
             # rospy.loginfo('%%%%%%%%%%%%%%%%%%%%% PREV CMD %%%%%%%%%%%%%%%%%%%%%%%%%')
-            self.prev_cmd = cmd
+            cmd = self.prev_cmd
+        else:
+            cmd = current_cmd
+        self.prev_cmd = current_cmd
 
         self.drive_pub.publish(cmd)
         # publish time error metrics
