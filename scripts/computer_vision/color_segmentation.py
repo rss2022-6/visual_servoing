@@ -92,3 +92,44 @@ def cd_color_segmentation(img, template):
 
 	# Return bounding box
 	return bounding_box
+
+def lf_color_segmentation(img, template):
+	"""
+	Implement the line following detection using color segmentation algorithm
+	Input:
+		img: np.3darray; the input image with a line to be detected. BGR.
+		template_file_path; Not required, but can optionally be used to automate setting hue filter values.
+	Return:
+		bbox: ((x1, y1), (x2, y2)); the bounding box of the line, unit in px
+				(x1, y1) is the top left of the bbox and (x2, y2) is the bottom right of the bbox
+	"""
+	########## YOUR CODE STARTS HERE ##########
+	img = img[220:230] #Crop the image to only look 48 to 96 inches ahead
+
+	xx, yy, xw, yh =0,0,0,0
+
+	hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
+	kernel = np.ones((3,3),np.uint8)
+	frame_threshold = cv2.inRange(hsv, (0, 140, 150), (30, 255, 255))
+	hsv_filter = cv2.bitwise_and(img, img, mask=frame_threshold)
+	erosion = cv2.erode(hsv_filter,kernel,iterations = 1)
+	dilation = cv2.dilate(erosion,kernel,iterations = 1)
+	grey = cv2.cvtColor(dilation, cv2.COLOR_BGR2GRAY)
+	im2, contours, hierarchy = cv2.findContours(grey, cv2.RETR_LIST, cv2.CHAIN_APPROX_NONE)
+	x,y,w,h = 0,0,0,0
+	area = 0
+	for contour in contours:
+		x_,y_,w_,h_ = cv2.boundingRect(contour)
+		if w_*h_>w*h:
+			x,y,w,h=x_,y_,w_,h_
+
+
+	bounding_box = ((x,y),(x+w,y+h))
+	cv2.rectangle(img,(x, y),(x+w,y+h),(0,0,255),3)
+	xx,yy,xw,yh=x,y,x+w,y+h
+
+	bounding_box = ((xx, yy),(xw, yh))
+	########### YOUR CODE ENDS HERE ###########
+
+	# Return bounding box
+	return bounding_box
